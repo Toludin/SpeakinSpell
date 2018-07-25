@@ -292,6 +292,7 @@ end
 ]]
 
 function SpeakinSpell:DamageEvent(eventtype, spellId, spellName, srcName, dstName, amount, overkill, school, critical) 
+	
 	local funcname = "DamageEvent"
 	
 	-- we only care about damage done by me
@@ -823,8 +824,10 @@ end
 
 local PendingSpellcastsSent = {}
 
-function SpeakinSpell:UNIT_SPELLCAST_SENT(event, caster, spellname, spellrank, target)
+function SpeakinSpell:UNIT_SPELLCAST_SENT(event, caster, target, castid, spellid)
+	--print(event.." "..caster.." "..target.." "..castid.." "..spellid)
 	-- <lasttarget> is the last known <target> reported by a UNIT_SPELLCAST_SENT
+	local spellname = GetSpellInfo(spellid)
 	self.RuntimeData.LastSpellcastSentTarget = target
 	self:DebugMsg("UNIT_SPELLCAST_SENT", tostring(spellname).." target is "..tostring(target))
 	
@@ -846,17 +849,21 @@ function SpeakinSpell:UNIT_SPELLCAST_SENT(event, caster, spellname, spellrank, t
 end
 
 
-function SpeakinSpell:UNIT_SPELLCAST_START(event, caster, spellname, spellrank, lineidcounter, spellid)
-	self:OnSpellcastEvent(event, caster, spellname, spellrank, spellid)
+function SpeakinSpell:UNIT_SPELLCAST_START(event, caster, castid, spellid)
+	--print(tostring(event).." "..tostring(caster).." "..tostring(spellname).." "..tostring(spellrank).." "..tostring(lineidcounter).." "..tostring(spellid))
+	local spellname = GetSpellInfo(spellid)
+	self:OnSpellcastEvent(event, caster, spellname, spellid)
 end
 
 
-function SpeakinSpell:UNIT_SPELLCAST_INTERRUPTED(event, caster, spellname, spellrank, lineidcounter, spellid)
+function SpeakinSpell:UNIT_SPELLCAST_INTERRUPTED(event, caster, castid, spellid)
 	-- these messages can be redundant for a single interrupt notified 3 times
 	-- we may have sent many spells from a macro (/m) and any or all of them could be interrupted
 	-- so match this interruption to a pending sent spell (if we can)
+	--print(tostring(event).." "..tostring(caster).." "..tostring(spellname).." "..tostring(spellrank).." "..tostring(lineidcounter).." "..tostring(spellid))
 	local PendingSent = PendingSpellcastsSent[spellname]
 	local target = ""
+	local spellname = GetSpellInfo(spellid)
 	if PendingSent then
 		if PendingSent.interrupted then
 			self:DebugMsg(nil,"(already interrupted) suppressed redundant UNIT_SPELLCAST_INTERRUPTED for "..tostring(spellname))
@@ -872,31 +879,37 @@ function SpeakinSpell:UNIT_SPELLCAST_INTERRUPTED(event, caster, spellname, spell
 		return
 	end
 
-	self:OnSpellcastEvent(event, caster, target, spellname, spellrank, spellid)
+	self:OnSpellcastEvent(event, caster, spellname, spellid)
 end
 
 
-function SpeakinSpell:UNIT_SPELLCAST_FAILED(event, caster, spellname, spellrank, lineidcounter, spellid)
-	self:OnSpellcastEvent(event, caster, spellname, spellrank, spellid)
+function SpeakinSpell:UNIT_SPELLCAST_FAILED(event, caster, castid, spellid)
+	local spellname = GetSpellInfo(spellid)
+	self:OnSpellcastEvent(event, caster, spellname, spellid)
 	PendingSpellcastsSent[spellname] = nil
 end
 
-function SpeakinSpell:UNIT_SPELLCAST_CHANNEL_START(event, caster, spellname, spellrank, lineidcounter, spellid)
-	self:OnSpellcastEvent(event, caster, spellname, spellrank, spellid)
+function SpeakinSpell:UNIT_SPELLCAST_CHANNEL_START(event, caster, castid, spellid)
+	local spellname = GetSpellInfo(spellid)
+	self:OnSpellcastEvent(event, caster, spellname, spellid)
 end
 
-function SpeakinSpell:UNIT_SPELLCAST_CHANNEL_STOP(event, caster, spellname, spellrank, lineidcounter, spellid)
-	self:OnSpellcastEvent(event, caster, spellname, spellrank, spellid)
+function SpeakinSpell:UNIT_SPELLCAST_CHANNEL_STOP(event, caster, castid, spellid)
+	--print(tostring(event).." "..tostring(caster).." "..tostring(castid).." "..tostring(spellid).." "..tostring(arg1).." "..tostring(arg2))
+	local spellname = GetSpellInfo(spellid)
+	self:OnSpellcastEvent(event, caster, spellname, spellid)
 	PendingSpellcastsSent[spellname] = nil
 end
 
-function SpeakinSpell:UNIT_SPELLCAST_STOP(event, caster, spellname, spellrank, lineidcounter, spellid)
-	self:OnSpellcastEvent(event, caster, spellname, spellrank, spellid)
+function SpeakinSpell:UNIT_SPELLCAST_STOP(event, caster, castid, spellid)
+	local spellname = GetSpellInfo(spellid)
+	self:OnSpellcastEvent(event, caster, spellname, spellid)
 	PendingSpellcastsSent[spellname] = nil
 end
 
-function SpeakinSpell:UNIT_SPELLCAST_SUCCEEDED(event, caster, spellname, spellrank, lineidcounter, spellid)
-	self:OnSpellcastEvent(event, caster, spellname, spellrank, spellid)
+function SpeakinSpell:UNIT_SPELLCAST_SUCCEEDED(event, caster, castid, spellid)
+	local spellname = GetSpellInfo(spellid)
+	self:OnSpellcastEvent(event, caster, spellname, spellid)
 	
 	-- if this is an instant cast, we need to clean up our pending sent object, or we'll leak memory
 	-- but if it's not an instant cast, then we need to keep this pending sent info
@@ -916,7 +929,8 @@ function SpeakinSpell:UNIT_SPELLCAST_SUCCEEDED(event, caster, spellname, spellra
 end
 
 
-function SpeakinSpell:OnSpellcastEvent(event, caster, spellname, spellrank, spellid)
+function SpeakinSpell:OnSpellcastEvent(event, caster, spellname, spellid)
+--function SpeakinSpell:OnSpellcastEvent(event, caster, spellname, spellrank, spellid)
 	local funcname = "OnSpellcastEvent"
 	
 	-- ignore events that don't originate with the player or pet
