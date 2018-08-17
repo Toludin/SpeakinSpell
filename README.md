@@ -10,3 +10,5 @@ To install:
 5) Go to your World of Warcraft\Interface\AddOns and move the existing SpeakinSpell folder somewhere else to keep as a backup copy.
 6) Copy in your new SpeakinSpell folder
 7) Launch the game
+
+NOTE: Be sure to keep all other SpeakinSpell-related folders (SpeakinSpell_Defaults, SpeakinSpell_GUI, and SpeakinSpell_Patches) in your AddOns folder. ONLY remove the SpeakinSpell folder and replace it with this one.
